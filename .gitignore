@@ -1,4 +1,9 @@
 cat > .gitignore <<'EOF'
+# --- ignore embedded SDK repo ---
+sdk-3.1/sdk-3.15.0/examples/
+sdk-3.1/**/.git/
+EOF
+
 # --- ROS / catkin build ---
 build/
 devel/
