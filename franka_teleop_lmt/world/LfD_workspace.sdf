@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="panda_reaching">
+    <gui>
+    <camera name="user_camera">
+      <pose>1.9938 0.1248 1.905 0 0.8058 -3.1229</pose>
+    </camera>
+  </gui>
+    <!--A global light source-->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <!--A ground plane-->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <!--A Table-->
+    <include>
+      <uri>model://table</uri>
+      <name>table</name>
+      <pose>0.5 0.0 0.0 0 0 0</pose>
+      <static>1</static>
+    </include>
+    <!--Start frame-->
+    <include>
+      <uri>model://green_frame</uri>
+      <name>startFrame</name>
+      <pose>0.67 -0.32 0.40 0 0 -0.8708</pose>
+      <static>1</static>
+    </include>
+    <!--End frame-->
+    <include>
+      <uri>model://red_frame</uri>
+      <name>endFrame</name>
+      <pose>0.41 0.15 0.40 0 0 1.5708</pose> <!-- 1.5708=pi/2 -->
+      <static>1</static>
+    </include>
+    <!-- NEW additional frame (blue) -->
+    <include>
+      <uri>model://blue_frame</uri>
+      <name>midFrame</name>
+      <pose>0.55 0.25 0.40 0 0 0.5</pose>
+      <static>1</static>
+    </include>
+    <!-- NEW additional frame (yellow) -->
+    <include>
+      <uri>model://yellow_frame</uri>
+      <name>yellowFrame</name>
+      <pose>0.5 -0.37 0.40 0 0 -1.0472</pose> <!-- -pi/3 ≈ -1.0472 rad -->
+      <static>1</static>
+    </include>
+  </world>
+</sdf>

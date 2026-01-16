@@ -1,0 +1,35 @@
+cat > .gitignore <<'EOF'
+# --- ROS / catkin build ---
+build/
+devel/
+install/
+logs/
+log/
+*.log
+
+# --- ROS bag / data ---
+*.bag
+*.bag.active
+*.csv
+*.h5
+*.hdf5
+
+# --- Teleop recordings / outputs ---
+TeleopData/
+*.txt
+
+# --- Docker images / archives ---
+*.tar
+*.tar.gz
+*.tgz
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Python cache ---
+__pycache__/
+*.pyc
+EOF

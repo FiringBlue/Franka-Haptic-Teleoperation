@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="demo_num_arg" default="1" />
+  <node name="leader"
+        pkg="franka_teleop_lmt"
+        type="leader_node"
+        output="screen"
+        args="$(arg demo_num_arg)" />
+</launch>
