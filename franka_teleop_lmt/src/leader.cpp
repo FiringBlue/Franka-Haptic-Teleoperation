@@ -30,6 +30,10 @@
 #include "dhdc.h"
 #include "drdc.h"
 
+// Grasping
+#include <actionlib/client/simple_action_client.h>
+#include <franka_gripper/GraspAction.h>
+#include <franka_gripper/MoveAction.h>
 
 
 ////////////////////////////////////////////////////////////////

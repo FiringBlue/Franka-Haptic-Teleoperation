@@ -1,8 +1,4 @@
-franka_state_controller:
-  type: franka_state_controller/FrankaStateController
-  publish_rate: 1000
-  
-cartesian_impedance_example_controller:
+  cartesian_impedance_example_controller:
     type: franka_teleop_lmt/CartesianImpedanceExampleController
     arm_id: panda
     joint_names:
