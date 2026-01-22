@@ -97,6 +97,21 @@ bool CartesianImpedanceExampleController::init(hardware_interface::RobotHW* robo
 		}
 	}
 
+	///////////////////////////////////////////////////////
+	// Subscribe to yaw rate commands 
+	///////////////////////////////////////////////////////
+	Yaw_Sub = new ros::Subscriber;
+	*Yaw_Sub = node_handle.subscribe<std_msgs::Float64>("yaw_rate_cmd", 1, &CartesianImpedanceExampleController::setYawRateCallback, this,
+	ros::TransportHints().reliable().tcpNoDelay());
+	
+
+	///////////////////////////////////////////////////////
+	// Subscribe to pitch rate commands 
+	///////////////////////////////////////////////////////
+	Pitch_Sub = new ros::Subscriber;
+	*Pitch_Sub = node_handle.subscribe<std_msgs::Float64>("pitch_rate_cmd", 1, &CartesianImpedanceExampleController::setPitchRateCallback, this,
+    ros::TransportHints().reliable().tcpNoDelay());
+	
 
 	///////////////////////////////////////////////////////
 	// Subscribe to leader commands 
@@ -222,7 +237,90 @@ void CartesianImpedanceExampleController::update(const ros::Time& time,
 		command_.clear();
 	}    
 
+	// ============================================================
+	// Rotation commands (yaw + pitch) with "keep newest only" queue
+	// ============================================================
 
+	// ---------- 1) Read newest yaw command ----------
+	if (yawMutex.try_lock()) {
+	if (!yawRateQ.empty()) {
+		yaw_rate_cmd_ = yawRateQ.front();
+		yawRateQ.pop();
+		// keep only newest
+		while (!yawRateQ.empty()) yawRateQ.pop();
+	}
+	yawMutex.unlock();
+	}
+
+	// ---------- 2) Read newest pitch command ----------
+	if (pitchMutex.try_lock()) {
+	if (!pitchRateQ.empty()) {
+		pitch_rate_cmd_ = pitchRateQ.front();
+		pitchRateQ.pop();
+		// keep only newest
+		while (!pitchRateQ.empty()) pitchRateQ.pop();
+	}
+	pitchMutex.unlock();
+	}
+
+	// ---------- 3) Safety clamp ----------
+	const double YAW_RATE_MAX   = 1.0;  // rad/s (tune)
+	const double PITCH_RATE_MAX = 1.0;  // rad/s (tune)
+
+	if (yaw_rate_cmd_ >  YAW_RATE_MAX)   yaw_rate_cmd_ =  YAW_RATE_MAX;
+	if (yaw_rate_cmd_ < -YAW_RATE_MAX)   yaw_rate_cmd_ = -YAW_RATE_MAX;
+
+	if (pitch_rate_cmd_ >  PITCH_RATE_MAX) pitch_rate_cmd_ =  PITCH_RATE_MAX;
+	if (pitch_rate_cmd_ < -PITCH_RATE_MAX) pitch_rate_cmd_ = -PITCH_RATE_MAX;
+
+	// ---------- 4) Integrate into desired orientation ----------
+	const double dt = period.toSec();
+	if (dt > 0.0) {
+	const double dyaw   = yaw_rate_cmd_   * dt;
+	const double dpitch = pitch_rate_cmd_ * dt;
+
+	// Base frame rotations:
+	// yaw about BASE Z, pitch about BASE Y
+	Eigen::AngleAxisd dYaw(dyaw,     Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd dPitch(dpitch, Eigen::Vector3d::UnitY());
+
+	// Apply in fixed order (choose one order and stick to it)
+	Eigen::Quaterniond dq = Eigen::Quaterniond(dYaw) * Eigen::Quaterniond(dPitch);
+
+	// Base-frame command => left-multiply
+	orientation_d_ = dq * orientation_d_;
+	orientation_d_.normalize();
+	}
+
+
+	// // -------------------------
+	// // Read yaw-rate command (rad/s) and update desired orientation
+	// // -------------------------
+  	// if (yawMutex.try_lock()) {
+   	// 	if (!yawRateQ.empty()) {
+    //  		yaw_rate_cmd_ = yawRateQ.front();
+    //   		yawRateQ.pop();
+    //   		// Optional: clear old backlog so only the newest matters
+    //   		while (!yawRateQ.empty()) yawRateQ.pop();
+    //     }
+    // 	yawMutex.unlock();
+  	// }
+
+  	// // Safety clamp yaw speed
+  	// const double YAW_RATE_MAX = 1.0; // rad/s (tune)
+  	// if (yaw_rate_cmd_ >  YAW_RATE_MAX) yaw_rate_cmd_ =  YAW_RATE_MAX;
+  	// if (yaw_rate_cmd_ < -YAW_RATE_MAX) yaw_rate_cmd_ = -YAW_RATE_MAX;
+
+  	// const double dt = period.toSec();
+  	// const double dyaw = yaw_rate_cmd_ * dt;
+
+  	// // Yaw about BASE Z axis 
+ 	// Eigen::AngleAxisd dR(dyaw, Eigen::Vector3d::UnitZ());
+  	// orientation_d_ = Eigen::Quaterniond(dR) * orientation_d_;
+  	// orientation_d_.normalize();
+
+	
+	/////////////////////////////////////////////////////////////////////////////
 	// get state variables
 	franka::RobotState robot_state = state_handle_->getRobotState();
 	std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
@@ -384,6 +482,19 @@ void CartesianImpedanceExampleController::setCommandCallback(const std_msgs::Flo
 		first_packet = 1;
 	}
 }
+
+
+void CartesianImpedanceExampleController::setYawRateCallback(const std_msgs::Float64ConstPtr& msg) {
+  const std::lock_guard<std::mutex> lock(yawMutex);
+  yawRateQ.push(msg->data);
+}
+
+
+void CartesianImpedanceExampleController::setPitchRateCallback(const std_msgs::Float64ConstPtr& msg) {
+  const std::lock_guard<std::mutex> lock(pitchMutex);
+  pitchRateQ.push(msg->data);
+}
+
 
 void CartesianImpedanceExampleController::RecordSignals(const ros::TimerEvent&) {
   std::string package_path = ros::package::getPath("franka_teleop_lmt");

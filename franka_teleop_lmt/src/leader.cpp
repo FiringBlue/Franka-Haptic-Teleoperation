@@ -25,6 +25,7 @@
 //#include <controller_manager_msgs/SwitchController.h>
 #include <ros/ros.h>
 #include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Float64.h>
 #include <std_msgs/String.h>
 #include <ros/package.h>
 
@@ -41,6 +42,8 @@ ros::Publisher* L_Pub;              // Leader publisher
 ros::Subscriber* L_Sub;             // Leader subscriber
 ros::Timer TimerRecorder;           // Timer for recorder thread
 ros::Publisher* GripperTogglePub;  // Gripper toggle publisher
+ros::Publisher* YawRatePub;         // yaw rate publisher
+ros::Publisher* PitchRatePub;       // pitch rate publisher
 double TimerPeriodHaptic = 0.001;   // Comm. rate (1/T)
 double CurrentTime = 0;
 bool no_haptics_mode = false;   // toggled by button 2
@@ -129,6 +132,15 @@ int main(int argc, char** argv) {
   L_Pub = new ros::Publisher;
   *L_Pub = n->advertise<std_msgs::Float64MultiArray>("/cartesian_impedance_example_controller/LFcommand", 1, false);
 
+  // Yaw rate publisher for follower
+  YawRatePub = new ros::Publisher;
+  *YawRatePub = n->advertise<std_msgs::Float64>("/cartesian_impedance_example_controller/yaw_rate_cmd", 1, false);
+
+  // Pitch rate publisher for follower
+  PitchRatePub = new ros::Publisher;
+  *PitchRatePub = n->advertise<std_msgs::Float64>("/cartesian_impedance_example_controller/pitch_rate_cmd", 1, false);
+
+
   // Leader subscriber for feedback
   L_Sub = new ros::Subscriber;
   *L_Sub = n->subscribe<std_msgs::Float64MultiArray>(
@@ -204,45 +216,90 @@ void* HapticsLoop(void* ptr) {
     const int BTN_TOGGLE = 2;   // press-to-toggle force feedback
     const int BTN_WS = 3;    // right button: workspace scaling
 
-    // Rising-edge detect for button 0
-    static bool last_gripper_pressed = false;
-    bool gripper_pressed = (dhdGetButton(BTN_GRIPPER_TOGGLE) != 0);
-
-    if (gripper_pressed && !last_gripper_pressed) {
-      std_msgs::Bool msg;
-      msg.data = true;                 // event
-      GripperTogglePub->publish(msg);
-      ROS_WARN_THROTTLE(0.2, "Button0 -> gripper toggle event sent");
-    }
-    last_gripper_pressed = gripper_pressed;
-
     // Clutch button (hold-to-freeze): left (1)
     bool clutch_pressed = (dhdGetButton(BTN_CLUTCH) != 0); 
-
-    // Rising-edge detect for toggle button
-    static bool last_toggle_pressed = false;
+    bool gripper_pressed = (dhdGetButton(BTN_GRIPPER_TOGGLE) != 0);
     bool toggle_pressed = (dhdGetButton(BTN_TOGGLE) != 0);
-
-    if (toggle_pressed && !last_toggle_pressed) {
-      no_haptics_mode = !no_haptics_mode;
-      ROS_WARN("no_haptics_mode = %s", no_haptics_mode ? "ON (force=0)" : "OFF (force enabled)");
-    }
-    last_toggle_pressed = toggle_pressed;
-
-
-    // ===============================
-    // Workspace scaling: cycle ws = {1,2,3}
-    // Button: right (3)
-    // ===============================
-    static bool last_ws_pressed = false;
     bool ws_pressed = (dhdGetButton(BTN_WS) != 0);
-
-    if (ws_pressed && !last_ws_pressed) {
-      ws_idx = (ws_idx + 1) % 3;
-      ws = ws_levels[ws_idx];
-      ROS_WARN("Workspace scale ws = %.1f", ws);
+    // ================================================================
+    // Yaw rate and Pitchcommand: Base Z axis and Base Y axis rotation
+    // ================================================================
+    double yaw_rate = 0.0;
+    const double OMEGA = 0.6; // rad/s (tune)
+    double pitch_rate = 0.0;
+ 
+    // ---- Modifier mode: B1 held -> interpret combos, block all toggles ----
+    if (clutch_pressed) {
+      // Priority: triple combo first
+      if (gripper_pressed && toggle_pressed) {
+        pitch_rate = -OMEGA;   // B1+B0+B2 => pitch-
+      } else if (toggle_pressed) {
+        pitch_rate = +OMEGA;   // B1+B2 => pitch+
+      } else if (gripper_pressed) {
+        yaw_rate   = -OMEGA;   // B1+B0 => yaw-
+      } else if (ws_pressed) {
+        yaw_rate   = +OMEGA;   // B1+B3 => yaw+
+      }
     }
+
+    // Publish yaw rate
+    std_msgs::Float64 yaw_msg;
+    yaw_msg.data = yaw_rate;
+    YawRatePub->publish(yaw_msg);
+    // Publish pitch rate
+    std_msgs::Float64 pitch_msg;
+    pitch_msg.data = pitch_rate;
+    PitchRatePub->publish(pitch_msg);
+
+
+    static bool last_gripper_pressed = false;
+    static bool last_toggle_pressed = false;
+    static bool last_ws_pressed = false;
+
+
+    // ---- Normal mode: no modifier held -> all buttons are toggles ----
+    if (!clutch_pressed) {
+      // grapper toggle button: center (0)
+      if (gripper_pressed && !last_gripper_pressed) {
+        std_msgs::Bool msg;
+        msg.data = true;                 // event
+        GripperTogglePub->publish(msg);
+        ROS_WARN_THROTTLE(0.2, "Button 0 -> gripper toggle event sent");
+      }
+
+      // No-haptics toggle button: top (2)
+      if (toggle_pressed && !last_toggle_pressed) {
+        no_haptics_mode = !no_haptics_mode;
+        ROS_WARN("no_haptics_mode = %s", no_haptics_mode ? "ON (force=0)" : "OFF (force enabled)");
+      }
+
+      // Workspace scaling: cycle ws = {1,2,3}    Button: right (3)
+      if (ws_pressed && !last_ws_pressed) {
+        ws_idx = (ws_idx + 1) % 3;
+        ws = ws_levels[ws_idx];
+        ROS_WARN("Workspace scale ws = %.1f", ws);
+      }
+    }
+    
+    // Update last button states
+    last_gripper_pressed = gripper_pressed;
+    last_toggle_pressed = toggle_pressed;
     last_ws_pressed = ws_pressed; 
+
+
+    // // ===============================
+    // // Workspace scaling: cycle ws = {1,2,3}
+    // // Button: right (3)
+    // // ===============================
+    // static bool last_ws_pressed = false;
+    // bool ws_pressed = (dhdGetButton(BTN_WS) != 0);
+
+    // if (ws_pressed && !last_ws_pressed) {
+    //   ws_idx = (ws_idx + 1) % 3;
+    //   ws = ws_levels[ws_idx];
+    //   ROS_WARN("Workspace scale ws = %.1f", ws);
+    // }
+    // last_ws_pressed = ws_pressed; 
   // // === Button debug (compatible): print first 8 button states once per second ===
   // std::string s = "Buttons(0..7): ";
   // for (int i = 0; i < 8; ++i) {
@@ -376,7 +433,9 @@ void* HapticsLoop(void* ptr) {
     %%% Your code here!
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
     double factor = 5;
-    if (no_haptics_mode || clutch_pressed) {
+    // Force feedback during rotation
+    const bool rotating = (yaw_rate != 0.0) || (pitch_rate != 0.0);
+    if (no_haptics_mode || (clutch_pressed && !rotating)){
       dhdSetForce(0, 0, 0);
     } else {
       dhdSetForce(-Fl[0]/factor, -Fl[1]/factor, -Fl[2]/factor);

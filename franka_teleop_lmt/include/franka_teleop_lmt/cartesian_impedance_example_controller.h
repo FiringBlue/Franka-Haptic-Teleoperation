@@ -7,6 +7,7 @@
 #include <time.h>
 #include <queue>
 #include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Float64.h>
 
 #include <controller_interface/multi_interface_controller.h>
 #include <dynamic_reconfigure/server.h>
@@ -34,6 +35,8 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   void update(const ros::Time&, const ros::Duration& period) override;
   void setCommandCallback(const std_msgs::Float64MultiArrayConstPtr &msg);
   void RecordSignals(const ros::TimerEvent&);  // Record function
+  void setYawRateCallback(const std_msgs::Float64ConstPtr& msg);  // Yaw rate callback
+  void setPitchRateCallback(const std_msgs::Float64ConstPtr& msg);  // Pitch rate callback
 
  private:
   // Saturation
@@ -61,6 +64,16 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   std::vector<double> feedback_;    // slave feedback to send to teleoperator
   std::queue<std::vector<double>>commandQ;   // Force feedback queue
   std::mutex commandMutex;
+  std::queue<double> yawRateQ;    // Yaw rate queue
+  std::mutex yawMutex;            // Mutex for yaw rate
+  std::queue<double> pitchRateQ;    // Pitch rate queue
+  std::mutex pitchMutex;          // Mutex for pitch rate
+
+//yaw rate
+  double yaw_rate_cmd_ = 0.0;    
+
+//pitch rate
+  double pitch_rate_cmd_ = 0.0;
 
 // To be sent to follower (feedback)
   double Xf[3];                 // follower position end-effector
@@ -72,6 +85,8 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
 // Robot publisher and subscriber
   ros::Subscriber *F_Sub;   // command subscriber from teleoeperator
   ros::Publisher *F_Pub;    // feedback publisher to teleoperator
+  ros::Subscriber* Yaw_Sub; // yaw rate subscriber from teleoperator
+  ros::Subscriber* Pitch_Sub; // pitch rate subscriber from teleoperator
   bool first_packet = 0;
   
 // Data recording
