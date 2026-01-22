@@ -2,7 +2,7 @@
 <launch>
   <arg name="robot_ip" />
   <arg name="arm_id" default="panda" />
-  <arg name="load_gripper" default="false" />
+  <arg name="load_gripper" default="true" />
 
   <!-- This controller name must match YAML key -->
   <arg name="teleop_controller" default="cartesian_impedance_example_controller" />
@@ -18,9 +18,22 @@
   <param name="demo_num" value="$(arg demo_num_arg)" />
 
   <!-- 3) Load your controller config -->
-  <rosparam command="load" file="$(find franka_control)/config/franka_example_controllers.yaml" />
+  <rosparam command="load" file="$(find franka_teleop_lmt)/config/franka_example_controllers.yaml" />
 
-  <!-- 4) Spawn controllers -->
+  <!-- 4) Start gripper toggle node -->
+  <arg name="gripper_ns" default="/franka_gripper"/>
+  <node pkg="franka_teleop_lmt" type="gripper_toggle_node" name="gripper_toggle_node" output="screen">
+    <param name="gripper_ns" value="$(arg gripper_ns)"/>
+    <param name="toggle_topic" value="/teleop/gripper_toggle"/>
+    <param name="do_homing_on_start" value="false"/>
+    <param name="open_width" value="0.08"/>
+    <param name="open_speed" value="0.10"/>
+    <param name="grasp_force" value="20.0"/>
+    <param name="eps_inner" value="0.02"/>
+    <param name="eps_outer" value="0.02"/>
+  </node>
+
+  <!-- 5) Spawn controllers -->
   <node pkg="controller_manager"
         type="spawner"
         name="$(arg arm_id)_controller_spawner"

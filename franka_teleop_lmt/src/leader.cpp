@@ -13,6 +13,8 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <std_msgs/Bool.h>
+#include <mutex>
 
 // Eigen
 #include <eigen3/Eigen/Dense>
@@ -30,11 +32,6 @@
 #include "dhdc.h"
 #include "drdc.h"
 
-// Grasping
-#include <actionlib/client/simple_action_client.h>
-#include <franka_gripper/GraspAction.h>
-#include <franka_gripper/MoveAction.h>
-
 
 ////////////////////////////////////////////////////////////////
 // Declared Variables for ROS
@@ -43,6 +40,7 @@ ros::NodeHandle* n;                 // Leader ROS Node
 ros::Publisher* L_Pub;              // Leader publisher
 ros::Subscriber* L_Sub;             // Leader subscriber
 ros::Timer TimerRecorder;           // Timer for recorder thread
+ros::Publisher* GripperTogglePub;  // Gripper toggle publisher
 double TimerPeriodHaptic = 0.001;   // Comm. rate (1/T)
 double CurrentTime = 0;
 bool no_haptics_mode = false;   // toggled by button 2
@@ -121,6 +119,9 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "leader");
   n = new ros::NodeHandle;
 
+  GripperTogglePub = new ros::Publisher;
+  *GripperTogglePub = n->advertise<std_msgs::Bool>("/teleop/gripper_toggle", 1, false);
+
   // Demo number
   demo_num= argv[1];
 
@@ -197,14 +198,26 @@ void* HapticsLoop(void* ptr) {
   while (ros::ok()) {
     // ===============================
     // Button mapping 
-    // clutch=left(1), toggle no-haptics=top(2)
     // ===============================
+    const int BTN_GRIPPER_TOGGLE = 0;   // grapper toggle button (button 0)
     const int BTN_CLUTCH = 1;   // hold-to-freeze
     const int BTN_TOGGLE = 2;   // press-to-toggle force feedback
     const int BTN_WS = 3;    // right button: workspace scaling
 
+    // Rising-edge detect for button 0
+    static bool last_gripper_pressed = false;
+    bool gripper_pressed = (dhdGetButton(BTN_GRIPPER_TOGGLE) != 0);
 
-    bool clutch_pressed = (dhdGetButton(BTN_CLUTCH) != 0);
+    if (gripper_pressed && !last_gripper_pressed) {
+      std_msgs::Bool msg;
+      msg.data = true;                 // event
+      GripperTogglePub->publish(msg);
+      ROS_WARN_THROTTLE(0.2, "Button0 -> gripper toggle event sent");
+    }
+    last_gripper_pressed = gripper_pressed;
+
+    // Clutch button (hold-to-freeze): left (1)
+    bool clutch_pressed = (dhdGetButton(BTN_CLUTCH) != 0); 
 
     // Rising-edge detect for toggle button
     static bool last_toggle_pressed = false;
@@ -393,8 +406,7 @@ void* HapticsLoop(void* ptr) {
 
     // time
     tmp->time = CurrentTime;
-
-
+   
     // Leader states
     for (int k = 0; k < 3; k++) {
       tmp->Vl[k] = Vl[k];
@@ -402,6 +414,11 @@ void* HapticsLoop(void* ptr) {
       tmp->Fl[k] = Fl[k];
   
     }
+
+     // button states
+    tmp->ws = ws;
+    tmp->clutch_pressed = clutch_pressed;      // local variable in HapticsLoop
+    tmp->no_haptics_mode = no_haptics_mode;   // global variable
 
 		// First packet received
 		tmp->first_packet = first_packet;
