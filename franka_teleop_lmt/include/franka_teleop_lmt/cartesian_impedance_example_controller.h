@@ -8,6 +8,8 @@
 #include <queue>
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Float64.h>
+#include <mutex>
+#include <std_msgs/Bool.h> 
 
 #include <controller_interface/multi_interface_controller.h>
 #include <dynamic_reconfigure/server.h>
@@ -37,6 +39,8 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   void RecordSignals(const ros::TimerEvent&);  // Record function
   void setYawRateCallback(const std_msgs::Float64ConstPtr& msg);  // Yaw rate callback
   void setPitchRateCallback(const std_msgs::Float64ConstPtr& msg);  // Pitch rate callback
+  void setGripperToggleCallback(const std_msgs::BoolConstPtr& msg);  // Gripper event callback
+
 
  private:
   // Saturation
@@ -49,7 +53,7 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   std::vector<hardware_interface::JointHandle> joint_handles_;
 
 
-  double translational_stiffness_{150};
+  double translational_stiffness_{200};
   double rotational_stiffness_{60};
   double nullspace_stiffness_{2.0};
   const double delta_tau_max_{1.0};
@@ -68,6 +72,8 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   std::mutex yawMutex;            // Mutex for yaw rate
   std::queue<double> pitchRateQ;    // Pitch rate queue
   std::mutex pitchMutex;          // Mutex for pitch rate
+  std::mutex gripperMutex;
+  std::queue<int> gripperEventQ;    // Gripper event queue
 
 //yaw rate
   double yaw_rate_cmd_ = 0.0;    
@@ -75,6 +81,9 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
 //pitch rate
   double pitch_rate_cmd_ = 0.0;
 
+//gripper event
+  int gripper_event_latched_ = 0;
+  
 // To be sent to follower (feedback)
   double Xf[3];                 // follower position end-effector
   double Vf[3];                 // follower velocity end-effector
@@ -87,6 +96,7 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
   ros::Publisher *F_Pub;    // feedback publisher to teleoperator
   ros::Subscriber* Yaw_Sub; // yaw rate subscriber from teleoperator
   ros::Subscriber* Pitch_Sub; // pitch rate subscriber from teleoperator
+  ros::Subscriber* Gripper_Sub; // gripper event subscriber from teleoperator
   bool first_packet = 0;
   
 // Data recording
@@ -96,6 +106,9 @@ class CartesianImpedanceExampleController : public controller_interface::MultiIn
     double Xf[3];
     double Vf[3];
     double Fc[3];
+    double yaw_rate_cmd;
+    double pitch_rate_cmd;
+    int gripper_event; 
   } RecordData;
   FILE* fidRecord;
   std::queue<RecordData> RecordQueue;

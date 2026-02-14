@@ -118,9 +118,17 @@ bool CartesianImpedanceExampleController::init(hardware_interface::RobotHW* robo
 	///////////////////////////////////////////////////////
 	F_Sub = new ros::Subscriber;
 	*F_Sub = node_handle.subscribe<std_msgs::Float64MultiArray>("LFcommand", 1, &CartesianImpedanceExampleController::setCommandCallback, this,
-			ros::TransportHints().reliable().tcpNoDelay());
+	ros::TransportHints().reliable().tcpNoDelay());
 
 
+	///////////////////////////////////////////////////////
+	// Subscribe to gripper toggle events
+	///////////////////////////////////////////////////////
+	Gripper_Sub = new ros::Subscriber;
+	*Gripper_Sub = node_handle.subscribe<std_msgs::Bool>("/teleop/gripper_toggle", 1, &CartesianImpedanceExampleController::setGripperToggleCallback, this,
+    ros::TransportHints().reliable().tcpNoDelay());
+
+	
 	///////////////////////////////////////////////////////
 	// Publish follower force feedback 
 	///////////////////////////////////////////////////////
@@ -146,7 +154,9 @@ bool CartesianImpedanceExampleController::init(hardware_interface::RobotHW* robo
 	fprintf(fidRecord, "Vf_x\tVf_y\tVf_z\t");    	// Leader Velocity
 	fprintf(fidRecord, "Xf_x\tXf_y\tXf_z\t");    	// Leader Position
 	fprintf(fidRecord, "Fc_x\tFc_y\tFc_z\t");  		// Leader Force
-		fprintf(fidRecord, "first_packet\n"); 		// first packet received
+	fprintf(fidRecord, "yaw_rate_cmd\tpitch_rate_cmd\t");	// yaw rate and pitch rate
+	fprintf(fidRecord, "gripper_event\t");		// gripper event
+	fprintf(fidRecord, "first_packet\n"); 		// first packet received
 	fclose(fidRecord);
 	TimerRecorder = node_handle.createTimer(ros::Duration(TimerPeriodHaptic),
 									&CartesianImpedanceExampleController::RecordSignals, this);  // create a timer callback for data record
@@ -261,6 +271,15 @@ void CartesianImpedanceExampleController::update(const ros::Time& time,
 		while (!pitchRateQ.empty()) pitchRateQ.pop();
 	}
 	pitchMutex.unlock();
+	}
+
+	// ---------- Read newest gripper toggle event ----------
+	if (gripperMutex.try_lock()) {
+  	if (!gripperEventQ.empty()) {
+    	gripper_event_latched_ = 1; // latch event
+    	while (!gripperEventQ.empty()) gripperEventQ.pop();
+  	}
+  	gripperMutex.unlock();
 	}
 
 	// ---------- 3) Safety clamp ----------
@@ -429,6 +448,12 @@ void CartesianImpedanceExampleController::update(const ros::Time& time,
 	// First packet received
 	tmp->first_packet = first_packet;
     
+	// Yaw rate, pitch rate, gripper event
+	tmp->yaw_rate_cmd = yaw_rate_cmd_;
+	tmp->pitch_rate_cmd = pitch_rate_cmd_;
+	tmp->gripper_event = gripper_event_latched_;
+	gripper_event_latched_ = 0; // reset latched event
+	
     // Push to record queue
     if (recordMutex.try_lock()) {
       RecordQueue.push(*tmp);
@@ -495,6 +520,11 @@ void CartesianImpedanceExampleController::setPitchRateCallback(const std_msgs::F
   pitchRateQ.push(msg->data);
 }
 
+void CartesianImpedanceExampleController::setGripperToggleCallback(const std_msgs::BoolConstPtr& msg) {
+  if (!msg->data) return; 
+  const std::lock_guard<std::mutex> lock(gripperMutex);
+  gripperEventQ.push(1);
+}
 
 void CartesianImpedanceExampleController::RecordSignals(const ros::TimerEvent&) {
   std::string package_path = ros::package::getPath("franka_teleop_lmt");
@@ -527,7 +557,9 @@ void CartesianImpedanceExampleController::RecordSignals(const ros::TimerEvent&) 
     fprintf(fidRecord, "%f\t%f\t%f\t", tmp->Vf[0], tmp->Vf[1], tmp->Vf[2]);
     fprintf(fidRecord, "%f\t%f\t%f\t", tmp->Xf[0], tmp->Xf[1], tmp->Xf[2]);
     fprintf(fidRecord, "%f\t%f\t%f\t", tmp->Fc[0], tmp->Fc[1], tmp->Fc[2]);
-		fprintf(fidRecord, "%d\n", tmp->first_packet);
+	fprintf(fidRecord, "%f\t%f\t", tmp->yaw_rate_cmd, tmp->pitch_rate_cmd);
+	fprintf(fidRecord, "%d\t", tmp->gripper_event);
+	fprintf(fidRecord, "%d\n", tmp->first_packet);
   }
   fclose(fidRecord);
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+
+<node pkg="franka_teleop_lmt" type="LfD_combi_node" name="LfD_combi_node" output="screen">
+  <param name="part1_csv" value="learned_part1.csv"/>
+  <param name="part2_csv" value="learned_part2.csv"/>
+  <param name="part3_csv" value="learned_part3_vel.csv"/>
+  <!-- <param name="part3_csv" value="learned_part3.csv"/> -->
+  <param name="base_dir" value="$(find franka_teleop_lmt)/TeleopData/SegmentDemo_learned/"/>
+  <param name="z_scale_part1" value="0.35"/>
+  <param name="z_scale_part2" value="0.45"/>
+  <param name="z_scale_part3" value="1.0"/>
+
+  <param name="grasp_pause_s" value="3.0"/>
+  <param name="release_sample" value="1"/>
+
+  <param name="pitch_rate" value="-1.5"/>
+</node>
+
+</launch>

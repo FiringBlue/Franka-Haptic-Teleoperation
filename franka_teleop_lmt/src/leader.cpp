@@ -47,8 +47,8 @@ ros::Publisher* PitchRatePub;       // pitch rate publisher
 double TimerPeriodHaptic = 0.001;   // Comm. rate (1/T)
 double CurrentTime = 0;
 bool no_haptics_mode = false;   // toggled by button 2
-double ws_levels[3] = {1.0, 2.0, 3.0};
-int ws_idx = 1;          // start from ws = 2.0 (middle, comfortable)
+double ws_levels[3] = {2.0, 4.0, 6.0};
+int ws_idx = 0;          // start from ws = 2.0 
 
 
 ////////////////////////////////////////////////////////////////
@@ -345,11 +345,13 @@ void* HapticsLoop(void* ptr) {
     // ===============================
     // Safety clamp on velocity (per-axis)
     // ===============================
-    const double V_MAX = 0.12;  // m/s-ish, tune later
+    const double V_MAX = 0.25;  // m/s-ish, tune later
     for (int i = 0; i < 3; ++i) {
       if (Vl[i] >  V_MAX) Vl[i] =  V_MAX;
       if (Vl[i] < -V_MAX) Vl[i] = -V_MAX;
     }
+    ROS_INFO_THROTTLE(0.2, "Vl cmd: [%.3f %.3f %.3f], ws=%.1f", Vl[0], Vl[1], Vl[2], ws);
+
     // If clutch is pressed, zero velocity
     if (clutch_pressed) {
       Vl[0] = Vl[1] = Vl[2] = 0.0;

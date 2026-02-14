@@ -14,13 +14,14 @@ clc;
 model.nbStates = 5;                         % Number of GMM states
 model.nbD = 100;                            % Number of datapoints (per demo)
 model.nbSamples = 3;                        % Number of demonstrations
-dataset_path = '/home/student1/catkin_ws/src/franka_ros/franka_teleop_lmt/TeleopData/';                  % Path to demonstration files
+dataset_path = '/home/wenhao/franka_haptic_teleoperation/franka_teleop_lmt/TeleopData/';                  % Path to demonstration files
 
 %% Load Demonstrations
 Data = [];
 for n = 1:model.nbSamples
     % Load and interpolate demo
-    fileName = [dataset_path 'follower_' num2str(n) '.txt'];
+    %fileName = [dataset_path 'follower_' num2str(n) '.txt'];
+    fileName = [dataset_path 'follower_' num2str(n) '_part1.csv'];
     pos = loadDemos(fileName)';
     pos = spline(1:size(pos,2), pos, linspace(1, size(pos,2), model.nbD));
 
@@ -37,8 +38,8 @@ Data = Data';  % Now each row is [x, v]
 %% Frames
 
 % Define transformation matrices for each frame from SDF pose
-start_pose = [0.67 -0.32 0.40 0 0 -0.8708];   % x, y, z, roll, pitch, yaw
-end_pose   = [0.41  0.15 0.40 0 0  1.5708];   % x, y, z, roll, pitch, yaw
+start_pose = [0.307 0 0.4868 0 0 -0.8708];   % x, y, z, roll, pitch, yaw
+end_pose   = [0.28  0.05 0.28 0 0 0];   % x, y, z, roll, pitch, yaw
 
 % Convert to structure with .A (rotation matrix) and .b (translation)
 p(1).A = eul2rotm(start_pose(4:6), 'XYZ');  % Rotation matrix
@@ -117,12 +118,27 @@ view(3);  % Top view
 %    gitgmdist already returns BIC.)
 % 3. Plot the BIC values against the number of states.
 % 4. Find the number of states K with the minimum BIC value.
-BICs = zeros(1,20);
-for i=2:20
-    gm = fitgmdist(Data, K, 'RegularizationValue', 1e-9);
-    BICs(i) = gm.BIC;
+BICs = inf(1,20);
+
+opt = statset('MaxIter', 1000, 'TolFun', 1e-6, 'Display', 'off');
+
+for k = 2:20
+    try
+        gm = fitgmdist(Data, k, ...
+            'RegularizationValue', 1e-6, ...
+            'Replicates', 5, ...
+            'Options', opt);
+        BICs(k) = gm.BIC;
+    catch ME
+        warning("K=%d failed: %s", k, ME.message);
+        BICs(k) = inf;
+    end
 end
-[~, K_opt] = min(BICs);
+
+[~, K_opt] = min(BICs(2:20));
+K_opt = K_opt + 1;  % because we minimized BICs(2:20)
+
+
 % Plot
 figure;
 plot(2:20, BICs(2:20), '-o', 'LineWidth', 2);
@@ -135,6 +151,11 @@ grid on;
 
 %% ====To-Do: Fit GMM to [x; v] with the number of states computed via BIC ====
 fitgmdist(Data, K_opt, 'RegularizationValue', 1e-6);
+GMModel = fitgmdist(Data, K_opt, ...
+    'RegularizationValue', 1e-6, ...
+    'Replicates', 3, ...
+    'Options', opt);
+model.nbStates = K_opt;
 
 
 
@@ -158,7 +179,7 @@ end
 x_repro(:,1) = mean(start_points, 2);
 
 % Sampling period
-dt = 1;
+dt = 0.001;
 
 for t = 2:model.nbD
     x_t = x_repro(:,t-1);
@@ -173,7 +194,8 @@ for t = 2:model.nbD
         %% ==== To-Do: Compute Responsibilities h(k) ====
         % Your task: For each GMM component, compute the probability of x_t under that component.
         % Hint: use mvnpdf(x_t', mu_x', sigma_x)
-        h(k)=mvnpdf(x_t', mu_x', sigma_x);
+        sigma_x = sigma_x + 1e-9*eye(3);
+        h(k) = GMModel.ComponentProportion(k) * mvnpdf(x_t', mu_x', sigma_x);
       
     end
     h = h / (sum(h) + realmin);
