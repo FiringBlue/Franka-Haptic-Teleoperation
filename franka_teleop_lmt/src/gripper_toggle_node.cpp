@@ -1,3 +1,10 @@
+//============================================================================
+// Name        : gripper_toggle_node.cpp
+// Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+// Version     : Feb 2026
+// Description : Gripper toggle node for teleoperation using franka_gripper action interface
+//============================================================================
+
 #include <ros/ros.h>
 #include <std_msgs/Bool.h>
 

@@ -1,3 +1,10 @@
+%============================================================================
+%Name        : train_gmm_gmr_from_segments.m
+%Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+%Version     : Feb 2026
+%Description : Train GMM + GMR for Part1 and Part2 on segmented throw demonstrations.
+%============================================================================
+
 clear; close all; clc;
 
 % ========= User config =========

@@ -1,3 +1,10 @@
+//============================================================================
+// Name        : dummy_follower.cpp
+// Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+// Version     : Feb 2026
+// Description : dummy follower node for teleoperation between force dimensiion haptic devices <-> franka arm 
+//============================================================================
+
 #include <ros/ros.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <algorithm>

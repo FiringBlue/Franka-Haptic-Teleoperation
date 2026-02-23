@@ -1,9 +1,16 @@
+%============================================================================
+%Name        : train_throw_velocity.m
+%Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+%Version     : Feb 2026
+%Description : Train GMM for Part3 on throw velocity only (no position).
+%============================================================================
+
 clear; close all; clc;
 
 % ========= config =========
 dataset_path = '/home/rmilnuc2/catkin_ws/src/franka_ros/franka_teleop_lmt/TeleopData/SegmentDemo';
 nbSamples = 6;
-nbD = 100;          % throw 段插值长度（你可以调）
+nbD = 100;          % throw part 
 nbStates = 3;
 
 Data = [];
@@ -14,19 +21,19 @@ for n = 1:nbSamples
     fileName = fullfile(dataset_path, sprintf('follower_%d_part3.csv', n));
     T = readtable(fileName);
 
-    % velocity directly from follower (真实执行速度)
+    % velocity directly from follower 
     vel = [T.Vf_x'; T.Vf_y'; T.Vf_z'];
 
-    % 去 NaN
+    % remove NaN
     good = all(isfinite(vel),1);
     vel = vel(:,good);
 
-    % spline 到统一长度
+    % spline to unified length
     vel = spline(1:size(vel,2), vel, linspace(1,size(vel,2), nbD));
 
     demos(n).vel = vel;
 
-    % 只学 velocity：Data = v
+    % only velocity：Data = v
     Data = [Data; vel'];
 end
 
@@ -40,7 +47,7 @@ GMModel = fitgmdist(Data, nbStates, ...
 % ========= reproduce velocity =========
 v_repro = zeros(3, nbD);
 
-% 初始速度 = demo 初值均值
+% initial vel = demo average at t=1
 v0 = zeros(3,1);
 for n = 1:nbSamples
     v0 = v0 + demos(n).vel(:,1);

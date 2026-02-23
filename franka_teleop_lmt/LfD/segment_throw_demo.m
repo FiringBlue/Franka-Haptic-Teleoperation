@@ -1,3 +1,10 @@
+%============================================================================
+%Name        : segment_throw_demo.m
+%Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+%Version     : Feb 2026
+%Description : Segment whole throw demonstration into 3 parts based on gripper_event (pulse), pitch_rate_cmd, and speed threshold. The segmentation results are saved in CSV files.
+%============================================================================
+
 function out = segment_throw_demo(follower_file, out_dir, opts)
 %SEGMENT_THROW_DEMO  Segment a throw demonstration into 3 parts based on
 % gripper_event (pulse), pitch_rate_cmd, and speed norm.

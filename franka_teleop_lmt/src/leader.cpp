@@ -1,7 +1,8 @@
 //============================================================================
 // Name        : leader.cpp
-// Author      : Basak Gülecyüz (basak.guelecyuez@tum.de)
-// Version     : April 2023
+// Author      : Basak Gülecyüz (basak.guelecyuez@tum.de);
+//               Wenhao Zhao (wenhao.zhao@tum.de)
+// Version     : Feb 2026
 // Description : leader node for teleoperation between force dimensiion haptic devices <-> franka arm 
 //============================================================================
 
@@ -286,20 +287,6 @@ void* HapticsLoop(void* ptr) {
     last_toggle_pressed = toggle_pressed;
     last_ws_pressed = ws_pressed; 
 
-
-    // // ===============================
-    // // Workspace scaling: cycle ws = {1,2,3}
-    // // Button: right (3)
-    // // ===============================
-    // static bool last_ws_pressed = false;
-    // bool ws_pressed = (dhdGetButton(BTN_WS) != 0);
-
-    // if (ws_pressed && !last_ws_pressed) {
-    //   ws_idx = (ws_idx + 1) % 3;
-    //   ws = ws_levels[ws_idx];
-    //   ROS_WARN("Workspace scale ws = %.1f", ws);
-    // }
-    // last_ws_pressed = ws_pressed; 
   // // === Button debug (compatible): print first 8 button states once per second ===
   // std::string s = "Buttons(0..7): ";
   // for (int i = 0; i < 8; ++i) {

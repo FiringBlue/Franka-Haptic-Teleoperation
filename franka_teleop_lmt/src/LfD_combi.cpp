@@ -1,3 +1,10 @@
+//============================================================================
+// Name        : LfD_combi.cpp
+// Author      : Wenhao Zhao (wenhao.zhao@tum.de)
+// Version     : Feb 2026
+// Description : LfD_combi Reproduction node
+//============================================================================
+
 #include <string>
 #include <vector>
 #include <fstream>
