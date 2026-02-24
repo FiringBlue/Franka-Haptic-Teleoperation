@@ -33,6 +33,48 @@ The robot performs a three-phase motion:
 The yaw rotation significantly improves the naturalness of the throw.
 
 ---
+## System Overview
+```mermaid
+flowchart LR
+  H[Haptic Device / Master] -->|Pose/Buttons| ROS((ROS Core))
+  ROS -->|/teleop/ee_pose| C[Slave Controller]
+  ROS -->|/teleop/gripper_toggle| G[Gripper Toggle Node]
+  C -->|command| R[Franka Arm]
+  G -->|open/close| GR[Franka Gripper]
+
+  C -->|teleopData stream| REC[Recorder / RecordQueue]
+  G -->|gripper_event| REC
+  REC -->|demo_i.bag / csv| DATA[(Dataset)]
+
+  DATA --> LFD[LfD: GMM/GMR, TP-GMM/GMR]
+  LFD -->|policy / reference traj| C
+```
+
+---
+
+## 📂 Repository Structure
+
+```
+franka_haptic_teleoperation/
+├── docker/                 # Docker environment configuration, Dockerfile
+├── sdk-3.1/                # Franka SDK, different versions
+├── franka_teleop_lmt/      # Main ROS package
+│   ├── config/             # Controller and parameter configurations
+│   ├── include/            # Header files
+│   ├── launch/             # ROS launch files
+│   ├── LfD/                # Learning from Demonstration Matlab codes
+│   ├── models/             # Trained GMM models / parameters(Sim)
+│   ├── msg/                # Custom ROS messages
+│   ├── scripts/            # Python helper scripts
+│   ├── src/                # Main C++ source files
+│   ├── TeleopData/         # Recorded/learned demonstration data (CSV)
+│   ├── world/              # Simulation world files (if used)
+│   ├── package.xml         # ROS package definition
+│   ├── CMakeLists.txt      # Build configuration
+│   └── Makefile            # Build helper
+└── README.md
+```
+---
 
 # 🕹 Teleoperation Framework
 
@@ -83,6 +125,16 @@ The task is divided into 3 segments:
 - Event-based (gripper open/close)
 - Velocity threshold (detect throwing phase)
 
+```mermaid
+flowchart LR
+  S[Raw teleopData] --> F1[Find event markers: gripper_close/open]
+  S --> F2[Find kinematic cues: speed peaks / acceleration]
+  F1 --> SEG[Segmentation]
+  F2 --> SEG
+  SEG --> P1[Phase 1: Approach & Grasp]
+  SEG --> P2[Phase 2: Lift & Move to Pre-throw Pose]
+  SEG --> P4[Phase 3: Throw & Release]
+  ```
 Segmentation improves stability and modeling accuracy.
 
 ---
@@ -101,7 +153,7 @@ v_t = E[v | x_t]
 
 Then integrate:
 
-x_{t+1} = x_t + v_t Δt
+x_{t+1} = x_t + v_t*Δt
 
 This creates a smooth velocity field representation of motion.
 
@@ -117,7 +169,7 @@ P(v)
 
 Reproduction:
 
-v_{t+1} = Σ h_k μ_k
+v_{t+1} = Σ h_k*μ_k
 
 This produces a stable velocity primitive suitable for explosive motion.
 
@@ -180,32 +232,6 @@ The robot autonomously performs:
 
 - Subscription:
   - `/cartesian_impedance_example_controller/FLfeedback`
----
-
-
-## 📂 Repository Structure
-
-```
-franka_haptic_teleoperation/
-├── docker/                 # Docker environment configuration, Dockerfile
-├── sdk-3.1/                # Franka SDK, different versions
-├── franka_teleop_lmt/      # Main ROS package
-│   ├── config/             # Controller and parameter configurations
-│   ├── include/            # Header files
-│   ├── launch/             # ROS launch files
-│   ├── LfD/                # Learning from Demonstration Matlab codes
-│   ├── models/             # Trained GMM models / parameters(Sim)
-│   ├── msg/                # Custom ROS messages
-│   ├── scripts/            # Python helper scripts
-│   ├── src/                # Main C++ source files
-│   ├── TeleopData/         # Recorded/learned demonstration data (CSV)
-│   ├── world/              # Simulation world files (if used)
-│   ├── package.xml         # ROS package definition
-│   ├── CMakeLists.txt      # Build configuration
-│   └── Makefile            # Build helper
-└── README.md
-```
-
 ---
 
 ## ⚙️ Key Implementation Details
