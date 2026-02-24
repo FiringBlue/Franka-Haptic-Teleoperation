@@ -322,8 +322,7 @@ roslaunch franka_teleop_lmt LfD_node.launch
 ---
 
 # 📷 Demo
-
-
+https://youtu.be/gdoREXuZkFs
 
 ---
 
