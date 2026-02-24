@@ -1,13 +1,27 @@
-  cartesian_impedance_example_controller:
-    type: franka_teleop_lmt/CartesianImpedanceExampleController
-    arm_id: panda
-    joint_names:
-        - panda_joint1
-        - panda_joint2
-        - panda_joint3
-        - panda_joint4
-        - panda_joint5
-        - panda_joint6
-        - panda_joint7
+cartesian_impedance_example_controller:
+  type: franka_teleop_lmt/CartesianImpedanceExampleController
+  arm_id: panda
+  joint_names:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
 
+ # configuration parameters for teleoperation
+  max_translational_velocity: 1.0      # m/s
+  max_translational_acceleration: 1.0   # m/s^2
+  max_rotational_velocity: 1.5          # rad/s
+  max_rotational_acceleration: 2.0      # rad/s^2
 
+  # stiffness:
+  #   translational: 2500.0
+  #   rotational: 300.0
+
+  # damping:
+  #   translational: 60.0
+  #   rotational: 15.0
+
+  # publish_rate: 1000
